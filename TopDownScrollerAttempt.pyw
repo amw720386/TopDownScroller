@@ -1,5 +1,6 @@
 import pygame
 import os
+import sys
 
 ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
 
@@ -157,7 +158,7 @@ while True:
         player.y += 5
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
-            pygame.quit()
+            sys.exit()
 
     player.dash(keys, objects)
 
