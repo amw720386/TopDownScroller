@@ -17,11 +17,34 @@ screen = pygame.display.set_mode((screen_width, screen_height))
 pygame.display.set_caption('Top Down Scroller')
 
 
-class Player:
-    def __init__(self, x, y, color, size):
+class CollidingObject:
+    def collide(self, colliders, player=''):
+        for collider in colliders:
+            if collider.hitbox:
+                if self.x == collider.origx + collider.sizex and self.y + self.sizex >= collider.origy and self.y <= collider.origy + collider.sizey:
+                    self.x = self.prevx
+                    self.y = self.prevy
+                if self.x + self.sizex == collider.origx and self.y + self.sizex >= collider.origy and self.y <= collider.origy + collider.sizey:
+                    self.x = self.prevx
+                    self.y = self.prevy
+                if self.y == collider.origy + collider.sizey and self.x + self.sizey >= collider.origx and self.x <= collider.origx + collider.sizex:
+                    self.x = self.prevx
+                    self.y = self.prevy
+                if self.y + self.sizey == collider.origy and self.x + self.sizey >= collider.origx and self.x <= collider.origx + collider.sizex:
+                    self.x = self.prevx
+                    self.y = self.prevy
+                if player:
+                    self.collide([player])
+
+
+class Player(CollidingObject):
+    def __init__(self, x, y, color, sizex, sizey):
         self.rect = pygame.Rect(
-            (screen_width/2), (screen_height/2), size, size)
-        self.size = size
+            (screen_width/2), (screen_height/2), sizex, sizey)
+        self.origx = x
+        self.origy = y
+        self.sizex = sizex
+        self.sizey = sizey
         self.x = x
         self.y = y
         self.prevx = self.x
@@ -30,9 +53,15 @@ class Player:
         self.dashing = False
         self.dashtick = 0
         self.dashlength = 300
+        self.hitbox = True
 
     def draw(self, screen):
+        self.origx = self.x
+        self.origy = self.y
         pygame.draw.rect(screen, self.color, self.rect)
+
+    def tick(self, keys, objects):
+        self.dash(keys, objects)
 
     def dash(self, keys, objects):
         keys = pygame.key.get_pressed()
@@ -60,22 +89,6 @@ class Player:
         if self.dashtick > 120 and self.dashing:
             self.dashing = False
 
-    def collide(self, colliders):
-        for collider in colliders:
-            if collider.hitbox:
-                if self.x == collider.origx + collider.sizex and self.y + self.size >= collider.origy and self.y <= collider.origy + collider.sizey:
-                    self.x = self.prevx
-                    self.y = self.prevy
-                if self.x + self.size == collider.origx and self.y + self.size >= collider.origy and self.y <= collider.origy + collider.sizey:
-                    self.x = self.prevx
-                    self.y = self.prevy
-                if self.y == collider.origy + collider.sizey and self.x + self.size >= collider.origx and self.x <= collider.origx + collider.sizex:
-                    self.x = self.prevx
-                    self.y = self.prevy
-                if self.y + self.size == collider.origy and self.x + self.size >= collider.origx and self.x <= collider.origx + collider.sizex:
-                    self.x = self.prevx
-                    self.y = self.prevy
-
 
 class ScrollableObject:
     def __init__(self, x, y, hitbox, sizex, sizey):
@@ -102,7 +115,7 @@ class Wall(ScrollableObject):
         pygame.draw.rect(screen, WHITE, self.rect)
 
 
-class Enemy(ScrollableObject):
+class Enemy(ScrollableObject, CollidingObject):
     def __init__(self, x, y, hitbox, sizex, sizey, speed, hitpoints):
         super().__init__(x, y, hitbox, sizex, sizey)
         self.origx = x
@@ -110,8 +123,12 @@ class Enemy(ScrollableObject):
         self.speed = speed
         self.hitpoints = hitpoints
         self.triggered = False
+        self.prevx = x
+        self.prevy = y
 
     def tick(self, player, colliders):
+        self.prevx = self.origx
+        self.prevy = self.origy
         if abs(player.x - self.origx) < 400 and abs(player.y - self.origy) < 400:
             self.triggered = True
         if self.triggered:
@@ -119,30 +136,15 @@ class Enemy(ScrollableObject):
             self.collide(colliders, player)
 
     def pathfind(self, player):
-        print("I'm Triggered!")  # add pathfinding bs here
-
-    def collide(self, colliders, player):
-        for collider in colliders:
-            if collider.hitbox:
-                if self.x == collider.origx + collider.sizex and self.y + self.sizey >= collider.origy and self.y <= collider.origy + collider.sizey:
-                    self.x = self.prevx
-                    self.y = self.prevy
-                if self.x + self.sizex == collider.origx and self.y + self.sizey >= collider.origy and self.y <= collider.origy + collider.sizey:
-                    self.x = self.prevx
-                    self.y = self.prevy
-                if self.y == collider.origy + collider.sizey and self.x + self.sizex >= collider.origx and self.x <= collider.origx + collider.sizex:
-                    self.x = self.prevx
-                    self.y = self.prevyi
-                if self.y + self.sizey == collider.origy and self.x + self.sizex >= collider.origx and self.x <= collider.origx + collider.sizex:
-                    self.x = self.prevx
-                    self.y = self.prevy
+        self.origx += 5
+        self.origy += 5
 
     def draw(self, screen):
         self.rect = pygame.Rect(self.x, self.y, self.sizex, self.sizey)
         pygame.draw.rect(screen, RED, self.rect)
 
 
-player = Player(int((screen_width/2)), int((screen_height/2)), WHITE, 50)
+player = Player(int((screen_width/2)), int((screen_height/2)), WHITE, 50, 50)
 objects = [Wall(100, 100, True, 100, 100), Wall(
     800, 500, True, 150, 50), Enemy(-500, -500, False, 50, 50, 25, 1)]
 
@@ -160,7 +162,7 @@ while True:
         if event.type == pygame.QUIT:
             sys.exit()
 
-    player.dash(keys, objects)
+    player.tick(keys, objects)
 
     player.collide(objects)
 
